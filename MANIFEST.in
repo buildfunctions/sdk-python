@@ -1,0 +1,5 @@
+include README.md
+include src/buildfunctions/py.typed
+recursive-exclude tests *
+exclude .env*
+exclude .git*
