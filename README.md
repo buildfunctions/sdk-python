@@ -48,109 +48,89 @@ Get your API token at [buildfunctions.com/settings](https://www.buildfunctions.c
 ### 2. CPU Function
 
 ```python
-import asyncio
-import os
 from buildfunctions import Buildfunctions, CPUFunction
 
-async def main():
-    client = await Buildfunctions({"apiToken": os.environ["BUILDFUNCTIONS_API_TOKEN"]})
+client = await Buildfunctions({"apiToken": API_TOKEN})
 
-    deployed_function = await CPUFunction.create({
-        "name": "my-cpu-function",
-        "code": "./cpu_function_code.py",
-        "language": "python",
-        "memory": 128,
-        "timeout": 30,
-    })
+deployed_function = await CPUFunction.create({
+    "name": "my-cpu-function",
+    "code": "./cpu_function_code.py",
+    "language": "python",
+    "memory": 128,
+    "timeout": 30,
+})
 
-    print(f"Endpoint: {deployed_function.endpoint}")
+print(f"Endpoint: {deployed_function.endpoint}")
 
-    await deployed_function.delete()
-
-asyncio.run(main())
+await deployed_function.delete()
 ```
 
 ### 3. CPU Sandbox
 
 ```python
-import asyncio
-import os
 from buildfunctions import Buildfunctions, CPUSandbox
 
-async def main():
-    client = await Buildfunctions({"apiToken": os.environ["BUILDFUNCTIONS_API_TOKEN"]})
+client = await Buildfunctions({"apiToken": API_TOKEN})
 
-    sandbox = await CPUSandbox.create({
-        "name": "my-cpu-sandbox",
-        "language": "python",
-        "code": "/path/to/code/cpu_sandbox_code.py",
-        "memory": 128,
-        "timeout": 30,
-    })
+sandbox = await CPUSandbox.create({
+    "name": "my-cpu-sandbox",
+    "language": "python",
+    "code": "/path/to/code/cpu_sandbox_code.py",
+    "memory": 128,
+    "timeout": 30,
+})
 
-    result = await sandbox.run()
-    print(f"Result: {result}")
+result = await sandbox.run()
+print(f"Result: {result}")
 
-    await sandbox.delete()
-
-asyncio.run(main())
+await sandbox.delete()
 ```
 
 ### 4. GPU Function
 
 ```python
-import asyncio
-import os
 from buildfunctions import Buildfunctions, GPUFunction
 
-async def main():
-    client = await Buildfunctions({"apiToken": os.environ["BUILDFUNCTIONS_API_TOKEN"]})
+client = await Buildfunctions({"apiToken": API_TOKEN})
 
-    deployed_function = await GPUFunction.create({
-        "name": "my-gpu-function",
-        "code": "/path/to/code/gpu_function_code.py",
-        "language": "python",
-        "gpu": "T4",
-        "vcpus": 30,
-        "memory": "50000MB",
-        "timeout": 300,
-        "requirements": ["transformers==4.47.1", "torch", "accelerate"],
-    })
+deployed_function = await GPUFunction.create({
+    "name": "my-gpu-function",
+    "code": "/path/to/code/gpu_function_code.py",
+    "language": "python",
+    "gpu": "T4",
+    "vcpus": 30,
+    "memory": "50000MB",
+    "timeout": 300,
+    "requirements": ["transformers==4.47.1", "torch", "accelerate"],
+})
 
-    print(f"Endpoint: {deployed_function.endpoint}")
+print(f"Endpoint: {deployed_function.endpoint}")
 
-    await deployed_function.delete()
-
-asyncio.run(main())
+await deployed_function.delete()
 ```
 
 ### 5. GPU Sandbox with Local Model
 
 ```python
-import asyncio
-import os
 from buildfunctions import Buildfunctions, GPUSandbox
 
-async def main():
-    client = await Buildfunctions({"apiToken": os.environ["BUILDFUNCTIONS_API_TOKEN"]})
+client = await Buildfunctions({"apiToken": API_TOKEN})
 
-    sandbox = await GPUSandbox.create({
-        "name": "my-gpu-sandbox",
-        "language": "python",
-        "memory": 10000,
-        "timeout": 300,
-        "vcpus": 6,
-        "code": "./gpu_sandbox_code.py",
-        "model": "/path/to/models/Qwen/Qwen3-8B",
-        "requirements": "torch",
-    })
+sandbox = await GPUSandbox.create({
+    "name": "my-gpu-sandbox",
+    "language": "python",
+    "memory": 10000,
+    "timeout": 300,
+    "vcpus": 6,
+    "code": "./gpu_sandbox_code.py",
+    "model": "/path/to/models/Qwen/Qwen3-8B",
+    "requirements": "torch",
+})
 
-    result = await sandbox.run()
-    print(f"Response: {result}")
+result = await sandbox.run()
+print(f"Response: {result}")
 
-    await sandbox.delete()
-
-asyncio.run(main())
+await sandbox.delete()
 ```
 
 The SDK is currently in beta.
