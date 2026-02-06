@@ -4,10 +4,13 @@ import sys
 import time
 from pathlib import Path
 
+# Import from local source instead of installed package
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
 import pytest
 from dotenv import load_dotenv
 
-from buildfunctions import Buildfunctions, GPUSandbox
+from buildfunctions import Buildfunctions, CPUSandbox
 
 load_dotenv()
 
@@ -15,12 +18,12 @@ API_TOKEN = os.environ.get("BUILDFUNCTIONS_API_TOKEN", "")
 
 
 @pytest.mark.asyncio
-async def test_gpu_sandbox_with_model():
-    """Test GPU sandbox with local model lifecycle."""
+async def test_cpu_sandbox():
+    """Test CPU sandbox lifecycle."""
     if not API_TOKEN:
         pytest.skip("Set BUILDFUNCTIONS_API_TOKEN in .env file")
 
-    print("Testing GPU Sandbox with Local Model...\n")
+    print("Testing CPU Sandbox...\n")
 
     sandbox = None
 
@@ -30,44 +33,40 @@ async def test_gpu_sandbox_with_model():
         client = await Buildfunctions({"apiToken": API_TOKEN})
         print(f"   Authenticated as: {client.user.username}")
 
-        # Step 2: Create GPU Sandbox with handler code and local model
-        print("\n2. Creating GPU Sandbox with local model...")
+        # Step 2: Create CPU Sandbox with handler code
+        print("\n2. Creating CPU Sandbox...")
 
-        sandbox = await GPUSandbox.create({
-            "name": f"sdk-gpu-sandbox-model-{int(time.time())}",
+        sandbox = await CPUSandbox.create({
+            "name": f"sdk-cpu-sandbox-{int(time.time())}",
             "language": "python",
-            "memory": 10000,
-            "timeout": 300,
-            "vcpus": 6,
-            "code": "./gpu_sandbox_code.py",
-            "model": "/path/to/models/Qwen/Qwen3-8B",
-            "requirements": "torch",
+            "code": "/path/to/code/cpu_sandbox_code.py",
+            "memory": "128MB",
+            "timeout": 30,
         })
-        print("   GPU Sandbox created")
+        print("   CPU Sandbox created")
         print(f"   ID: {sandbox.id}")
         print(f"   Name: {sandbox.name}")
         print(f"   Runtime: {sandbox.runtime}")
-        print(f"   GPU: {sandbox.gpu}")
         print(f"   Endpoint: {sandbox.endpoint}")
 
-        # Step 3: Run GPU Sandbox
-        print("\n3. Running GPU Sandbox...")
+        # Step 3: Run CPU Sandbox
+        print("\n3. Running CPU Sandbox...")
         result = await sandbox.run()
-        print(f"   Response: {json.dumps(dict(result), indent=2, default=str)}")
+        print(f"   Result: {json.dumps(dict(result), indent=2, default=str)}")
 
         # Step 4: Clean up
-        print("\n4. Deleting GPU Sandbox...")
+        print("\n4. Deleting CPU Sandbox...")
         await sandbox.delete()
-        print("   GPU Sandbox deleted")
+        print("   CPU Sandbox deleted")
 
-        print("\nGPU Sandbox with local model test completed!")
+        print("\nCPU Sandbox test completed!")
 
     except Exception:
         if sandbox and sandbox.delete:
             print("Attempting cleanup...")
             try:
                 await sandbox.delete()
-                print("GPU Sandbox cleaned up")
+                print("CPU Sandbox cleaned up")
             except Exception as e:
                 print(f"Cleanup failed: {e}")
         raise

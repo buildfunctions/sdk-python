@@ -4,6 +4,9 @@ import sys
 import time
 from pathlib import Path
 
+# Import from local source instead of installed package
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
 import httpx
 import pytest
 from dotenv import load_dotenv

@@ -2,6 +2,9 @@ import os
 import sys
 from pathlib import Path
 
+# Import from local source instead of installed package
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
 import pytest
 from dotenv import load_dotenv
 

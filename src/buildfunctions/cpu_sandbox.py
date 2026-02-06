@@ -183,9 +183,8 @@ async def _wait_for_endpoint(endpoint: str, max_attempts: int = 60, delay_ms: in
             result = await _https_get_with_ip(ip, hostname, path)
             if 200 <= result["status"] < 500:
                 return
-        except Exception as e:
-            if attempt == 1 or attempt % 10 == 0:
-                print(f"   Waiting... (attempt {attempt}/{max_attempts})")
+        except Exception:
+            pass
 
         await asyncio.sleep(delay_ms / 1000.0)
 

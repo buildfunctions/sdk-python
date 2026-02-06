@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable, Literal, TypedDict
 
+from buildfunctions.dotdict import DotDict
+
 
 # Scalar types
 Language = Literal["javascript", "typescript", "python", "go", "shell"]
@@ -150,8 +152,8 @@ class GPUSandboxConfig(TypedDict, total=False):
     model: str | dict[str, str]
 
 
-# Run result
-class RunResult(TypedDict):
+# Run result - uses DotDict so both result["response"] and result.response work
+class RunResult(DotDict):
     response: Any   # The response (parsed JSON object, or raw string if not JSON)
     status: int     # HTTP status code
 
