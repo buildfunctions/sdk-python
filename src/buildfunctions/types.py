@@ -10,7 +10,7 @@ from buildfunctions.dotdict import DotDict
 # Scalar types
 Language = Literal["javascript", "typescript", "python", "go", "shell"]
 Runtime = Literal["node", "deno", "python", "go", "shell"]
-GPUType = Literal["T4"]
+GPUType = Literal["T4G", "T4"]
 Framework = Literal["pytorch"]
 Memory = Literal["128Mi", "256Mi", "512Mi", "1Gi", "2Gi", "4Gi", "8Gi", "16Gi", "32Gi", "64Gi"]
 ErrorCode = Literal[
@@ -83,7 +83,11 @@ class GPUFunctionOptions(TypedDict, total=False):
     dependencies: str
     cron_schedule: str
     gpu: GPUType
-    cpu_cores: int  # vCPUs for the GPU function VM (hotplugged at runtime, default 10, max 50)
+    vcpus: int  # vCPUs for the GPU function VM (hotplugged at runtime, default 10, max 50)
+    gpu_count: int  # Number of GPUs (default 1)
+    memory: str | int  # "2GB", "1024MB", or number in MB (top-level shorthand for config.memory)
+    timeout: int  # Top-level shorthand for config.timeout
+    requirements: str | list[str]  # Top-level shorthand for dependencies
     framework: Framework
     model_path: str
     model_name: str
@@ -113,10 +117,10 @@ class DeployedFunction(TypedDict, total=False):
     name: str
     subdomain: str
     endpoint: str
-    lambdaUrl: str
+    url: str
     language: str
     runtime: str
-    lambdaMemoryAllocated: int
+    memoryAllocated: int
     timeoutSeconds: int
     cpuCores: str
     isGPUF: bool
@@ -149,6 +153,7 @@ class GPUSandboxConfig(TypedDict, total=False):
     requirements: str | list[str]
     gpu: GPUType
     cpu_cores: int  # vCPUs for the GPU sandbox VM (hotplugged at runtime, default 10, max 50)
+    gpu_count: int  # Number of GPUs (default 1)
     model: str | dict[str, str]
 
 
@@ -227,3 +232,15 @@ class PresignedUrlInfo(TypedDict, total=False):
     uploadId: str | None
     numberOfParts: int
     s3FilePath: str
+
+
+# Model resource types
+class ModelConfig(TypedDict, total=False):
+    path: str
+    name: str
+
+
+class ModelInstance(TypedDict, total=False):
+    id: str
+    name: str
+    delete: Callable[[], Awaitable[None]]

@@ -90,26 +90,40 @@ def _validate_options(options: GPUFunctionOptions) -> None:
     if options.get("language") != "python":
         raise ValidationError("GPU Functions currently only support Python. Additional languages coming soon.")
 
+    gpu_count = options.get("gpu_count")
+    if gpu_count is not None:
+        if not isinstance(gpu_count, int) or gpu_count < 1 or gpu_count > 10:
+            raise ValidationError("gpu_count must be an integer between 1 and 10")
+
 
 def _build_request_body(options: GPUFunctionOptions) -> dict[str, Any]:
     name = options["name"]
     language = options["language"]
     code = options["code"]
-    config = options.get("config", {})
+    config = options.get("config") or {}
     env_variables = options.get("env_variables", {})
-    dependencies = options.get("dependencies")
     cron_schedule = options.get("cron_schedule")
     framework = options.get("framework")
 
     runtime = options.get("runtime") or _get_default_runtime(language)
-    gpu = options.get("gpu", "T4")
+    gpu = "T4G" if options.get("gpu", "T4G") == "T4" else options.get("gpu", "T4G")
     file_ext = _get_file_extension(language)
     function_name = name.lower()
-    requirements = _format_requirements(dependencies)
+
+    # Support top-level memory/timeout (preferred) or nested config.memory/config.timeout
+    memory_raw = options.get("memory") or config.get("memory")
+    timeout_raw = options.get("timeout") or config.get("timeout")
+    # Support top-level requirements (preferred) or dependencies
+    requirements_raw = options.get("requirements") or options.get("dependencies")
+    requirements = _format_requirements(requirements_raw)
 
     env_vars_list = [{"key": k, "value": v} for k, v in env_variables.items()] if env_variables else []
 
-    cpu_cores = options.get("vcpus") or 10
+    # When gpu_count >= 2, user specifies totals — divide per VM
+    gpu_count = options.get("gpu_count") or 1
+    per_vm_divisor = gpu_count if gpu_count >= 2 else 1
+    memory_total = parse_memory(memory_raw) if memory_raw else 4096
+    vcpus_total = options.get("vcpus") or 10
 
     return {
         "name": function_name,
@@ -120,9 +134,9 @@ def _build_request_body(options: GPUFunctionOptions) -> dict[str, Any]:
         "fileExt": file_ext,
         "processorType": "GPU",
         "gpu": gpu,
-        "memoryAllocated": parse_memory(config.get("memory", 4096)) if config.get("memory") else 4096,
-        "timeout": config.get("timeout", 180) if config else 180,
-        "cpuCores": cpu_cores,  # vCPUs for the GPU function VM (hotplugged at runtime)
+        "memoryAllocated": memory_total // per_vm_divisor,
+        "timeout": timeout_raw or 180,
+        "cpuCores": vcpus_total // per_vm_divisor,
         "envVariables": json.dumps(env_vars_list),
         "requirements": requirements,
         "cronExpression": cron_schedule or "",
@@ -142,6 +156,7 @@ def _build_request_body(options: GPUFunctionOptions) -> dict[str, Any]:
             "gpufProjectTitleState": "test",
             "useEmptyFolder": True,
         },
+        "gpuCount": gpu_count,
     }
 
 
@@ -216,11 +231,11 @@ async def _create_gpu_function(options: GPUFunctionOptions) -> DeployedFunction 
         "name": func_name,
         "subdomain": func_name,
         "endpoint": endpoint,
-        "lambdaUrl": (data.get("data") or {}).get("sslCertificateEndpoint", ""),
+        "url": (data.get("data") or {}).get("sslCertificateEndpoint", ""),
         "language": options["language"],
         "runtime": resolved_runtime,
-        "lambdaMemoryAllocated": parse_memory(config.get("memory", 4096)) if config.get("memory") else 4096,
-        "timeoutSeconds": config.get("timeout", 180) if config else 180,
+        "memoryAllocated": parse_memory(options.get("memory") or config.get("memory") or 4096) if (options.get("memory") or config.get("memory")) else 4096,
+        "timeoutSeconds": options.get("timeout") or config.get("timeout") or 180,
         "isGPUF": True,
         "framework": options.get("framework", ""),
         "createdAt": now,

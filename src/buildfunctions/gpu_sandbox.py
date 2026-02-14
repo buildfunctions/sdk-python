@@ -68,6 +68,11 @@ def _validate_config(config: GPUSandboxConfig) -> None:
     if language != "python":
         raise ValidationError("GPU Sandboxes currently only support Python. Additional languages coming soon.")
 
+    gpu_count = config.get("gpu_count")
+    if gpu_count is not None:
+        if not isinstance(gpu_count, int) or gpu_count < 1 or gpu_count > 10:
+            raise ValidationError("gpu_count must be an integer between 1 and 10")
+
 
 def _get_file_extension(language: str) -> str:
     extensions: dict[str, str] = {
@@ -146,19 +151,63 @@ def _get_local_model_info(model_path: str, sandbox_name: str) -> dict[str, Any]:
     }
 
 
-def _build_request_body(config: GPUSandboxConfig, local_model_info: dict[str, Any] | None) -> dict[str, Any]:
+def _build_request_body(config: GPUSandboxConfig, local_model_info: dict[str, Any] | None, model_by_name: str | None = None) -> dict[str, Any]:
     name = config["name"].lower()
     language = config["language"]
     runtime = config.get("runtime") or _get_default_runtime(language)
     code = config.get("code", "")
     file_ext = _get_file_extension(language)
-    gpu = config.get("gpu", "T4")
+    gpu = "T4G" if config.get("gpu", "T4G") == "T4" else config.get("gpu", "T4G")
     requirements = _format_requirements(config.get("requirements"))
 
     has_local_model = local_model_info is not None
-    model_name = local_model_info["sanitized_model_name"] if has_local_model else None
+    has_model_by_name = model_by_name is not None
+    model_name = (
+        local_model_info["sanitized_model_name"] if has_local_model
+        else (model_by_name if has_model_by_name else None)
+    )
 
-    cpu_cores = config.get("vcpus") or 10
+    # When gpu_count >= 2, user specifies totals — divide per VM
+    gpu_count = config.get("gpu_count") or 1
+    per_vm_divisor = gpu_count if gpu_count >= 2 else 1
+    memory_total = parse_memory(config["memory"]) if config.get("memory") else 10000
+    vcpus_total = config.get("vcpus") or 10
+
+    # Build selectedModel based on model source
+    if has_local_model:
+        selected_model: dict[str, Any] = {
+            "name": local_model_info["sanitized_model_name"],
+            "modelName": local_model_info["sanitized_model_name"],
+            "currentModelName": local_model_info["local_upload_file_name"],
+            "isCreatingNewModel": True,
+            "gpufProjectTitleState": local_model_info["sanitized_model_name"],
+            "useEmptyFolder": False,
+            "files": local_model_info["files_within_model_folder"],
+        }
+        use_empty_folder = False
+        files_within = local_model_info["files_within_model_folder"]
+        file_names_within = local_model_info["file_names_within_model_folder"]
+    elif has_model_by_name:
+        # Pre-uploaded model referenced by name — build server uses existing model
+        selected_model = {
+            "currentModelName": model_by_name,
+            "isCreatingNewModel": False,
+            "gpufProjectTitleState": model_by_name,
+            "useEmptyFolder": False,
+        }
+        use_empty_folder = False
+        files_within = []
+        file_names_within = []
+    else:
+        selected_model = {
+            "currentModelName": None,
+            "isCreatingNewModel": True,
+            "gpufProjectTitleState": "test",
+            "useEmptyFolder": True,
+        }
+        use_empty_folder = True
+        files_within = []
+        file_names_within = []
 
     body: dict[str, Any] = {
         "name": name,
@@ -170,15 +219,15 @@ def _build_request_body(config: GPUSandboxConfig, local_model_info: dict[str, An
         "processorType": "GPU",
         "sandboxType": "gpu",
         "gpu": gpu,
-        "memoryAllocated": parse_memory(config["memory"]) if config.get("memory") else 10000,
+        "memoryAllocated": memory_total // per_vm_divisor,
         "timeout": config.get("timeout", 300),
-        "cpuCores": cpu_cores,  # vCPUs for the GPU sandbox VM (hotplugged at runtime)
+        "cpuCores": vcpus_total // per_vm_divisor,
         "envVariables": json.dumps(config.get("env_variables", [])),
         "requirements": requirements,
         "cronExpression": "",
         "totalVariables": len(config.get("env_variables", [])),
         "selectedFramework": detect_framework(requirements),
-        "useEmptyFolder": not has_local_model,
+        "useEmptyFolder": use_empty_folder,
         "modelPath": (
             f"{local_model_info['sanitized_model_name']}/mnt/storage/{local_model_info['local_upload_file_name']}"
             if has_local_model
@@ -191,27 +240,11 @@ def _build_request_body(config: GPUSandboxConfig, local_model_info: dict[str, An
             "language": language,
             "sizeInBytes": len(code.encode("utf-8")) if code else 0,
         },
-        "selectedModel": (
-            {
-                "name": local_model_info["sanitized_model_name"],
-                "modelName": local_model_info["sanitized_model_name"],
-                "currentModelName": local_model_info["local_upload_file_name"],
-                "isCreatingNewModel": True,
-                "gpufProjectTitleState": local_model_info["sanitized_model_name"],
-                "useEmptyFolder": False,
-                "files": local_model_info["files_within_model_folder"],
-            }
-            if has_local_model
-            else {
-                "currentModelName": None,
-                "isCreatingNewModel": True,
-                "gpufProjectTitleState": "test",
-                "useEmptyFolder": True,
-            }
-        ),
-        "filesWithinModelFolder": local_model_info["files_within_model_folder"] if has_local_model else [],
-        "fileNamesWithinModelFolder": local_model_info["file_names_within_model_folder"] if has_local_model else [],
+        "selectedModel": selected_model,
+        "filesWithinModelFolder": files_within,
+        "fileNamesWithinModelFolder": file_names_within,
         "modelName": model_name,
+        "gpuCount": config.get("gpu_count") or 1,
     }
 
     return body
@@ -344,21 +377,26 @@ async def _create_gpu_sandbox(config: GPUSandboxConfig) -> DotDict:
     base_url = _global_base_url or DEFAULT_BASE_URL
     api_token = _global_api_token
 
-    # Check if model is a local path
+    # Check if model is a local path or a model-by-name reference
     model_config = config.get("model")
     model_path = model_config if isinstance(model_config, str) else (model_config.get("path") if isinstance(model_config, dict) else None)
     local_model_info: dict[str, Any] | None = None
+    model_by_name: str | None = None
 
     if model_path and _is_local_path(model_path):
         print(f"   Local model detected: {model_path}")
         local_model_info = _get_local_model_info(model_path, config["name"])
         print(f"   Found {len(local_model_info['files'])} files to upload")
+    elif model_path:
+        # Model is a name string referencing a pre-uploaded model
+        model_by_name = _sanitize_model_name(model_path)
+        print(f"   Using pre-uploaded model: {model_by_name}")
 
     # Resolve code (inline string or file path)
     resolved_code = await resolve_code(config["code"]) if config.get("code") else ""
     resolved_config = {**config, "code": resolved_code}
 
-    request_body = _build_request_body(resolved_config, local_model_info)
+    request_body = _build_request_body(resolved_config, local_model_info, model_by_name)
 
     body = {
         **request_body,
@@ -422,7 +460,7 @@ async def _create_gpu_sandbox(config: GPUSandboxConfig) -> DotDict:
         sandbox_id or name,
         name,
         sandbox_runtime,
-        config.get("gpu", "T4"),
+        "T4G" if config.get("gpu", "T4G") == "T4" else config.get("gpu", "T4G"),
         sandbox_endpoint,
         api_token,
         gpu_build_url,

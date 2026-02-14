@@ -13,6 +13,7 @@ from buildfunctions.errors import NotFoundError
 from buildfunctions.framework import detect_framework
 from buildfunctions.gpu_function import GPUFunction, set_gpu_api_token
 from buildfunctions.gpu_sandbox import set_gpu_sandbox_api_token
+from buildfunctions.model import set_model_api_token
 from buildfunctions.http_client import create_http_client
 from buildfunctions.memory import parse_memory
 from buildfunctions.resolve_code import get_caller_file, resolve_code
@@ -64,13 +65,19 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
 
     def _wrap_function(fn: dict[str, Any]) -> DotDict:
         async def delete_fn() -> None:
-            await http["delete"]("/api/sdk/functions/build", {"siteId": fn["id"]})
+            await http["delete"]("/api/sdk/function/build", {"siteId": fn["id"]})
 
-        return DotDict({**fn, "delete": delete_fn})
+        # Map legacy API field names to new SDK field names
+        wrapped = {**fn, "delete": delete_fn}
+        if "lambdaUrl" in wrapped:
+            wrapped["url"] = wrapped.pop("lambdaUrl")
+        if "lambdaMemoryAllocated" in wrapped:
+            wrapped["memoryAllocated"] = wrapped.pop("lambdaMemoryAllocated")
+        return DotDict(wrapped)
 
     async def list_fn(options: ListOptions | None = None) -> list[DotDict]:
         page = (options or {}).get("page", 1)
-        response = await http["get"]("/api/sdk/functions", {"page": page})
+        response = await http["get"]("/api/sdk/function", {"page": page})
         return [_wrap_function(fn) for fn in response["stringifiedQueryResults"]]
 
     async def find_unique(options: FindUniqueOptions) -> DotDict | None:
@@ -78,7 +85,7 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
 
         if where.get("id"):
             try:
-                fn = await http["get"]("/api/sdk/functions/build", {"siteId": where["id"]})
+                fn = await http["get"]("/api/sdk/function/build", {"siteId": where["id"]})
                 return _wrap_function(fn)
             except NotFoundError:
                 return None
@@ -93,7 +100,7 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
         return None
 
     async def get(site_id: str) -> DotDict:
-        fn = await http["get"]("/api/sdk/functions/build", {"siteId": site_id})
+        fn = await http["get"]("/api/sdk/function/build", {"siteId": site_id})
         return _wrap_function(fn)
 
     async def create(options: CreateFunctionOptions) -> DotDict:
@@ -119,7 +126,7 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
                 "code": resolved_code,
                 "language": options["language"],
                 "runtime": runtime,
-                "gpu": options.get("gpu", "T4"),
+                "gpu": "T4G" if options.get("gpu", "T4G") == "T4" else options.get("gpu", "T4G"),
                 "vcpus": options.get("vcpus"),
                 "config": {
                     "memory": parse_memory(options["memory"]) if options.get("memory") else 1024,
@@ -159,7 +166,7 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
             "functionCount": 0,
         }
 
-        response = await http["post"]("/api/sdk/functions/build", body)
+        response = await http["post"]("/api/sdk/function/build", body)
         now = datetime.now(timezone.utc).isoformat()
 
         return _wrap_function({
@@ -167,10 +174,10 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
             "name": name,
             "subdomain": name,
             "endpoint": response["endpoint"],
-            "lambdaUrl": response.get("sslCertificateEndpoint", ""),
+            "url": response.get("sslCertificateEndpoint", ""),
             "language": options["language"],
             "runtime": runtime,
-            "lambdaMemoryAllocated": parse_memory(options["memory"]) if options.get("memory") else 128,
+            "memoryAllocated": parse_memory(options["memory"]) if options.get("memory") else 128,
             "timeoutSeconds": options.get("timeout", 10),
             "isGPUF": False,
             "framework": options.get("framework", ""),
@@ -179,7 +186,7 @@ def _create_functions_manager(http: dict[str, Any]) -> DotDict:
         })
 
     async def delete_fn(site_id: str) -> None:
-        await http["delete"]("/api/sdk/functions/build", {"siteId": site_id})
+        await http["delete"]("/api/sdk/function/build", {"siteId": site_id})
 
     return DotDict({
         "list": list_fn,
@@ -238,6 +245,7 @@ async def Buildfunctions(config: BuildfunctionsConfig | None = None) -> DotDict:
     set_gpu_sandbox_api_token(auth_response["sessionToken"], gpu_build_url, user_id, username, compute_tier, base_url)
     set_gpu_api_token(auth_response["sessionToken"], gpu_build_url, base_url, user_id, username, compute_tier)
     set_api_token(auth_response["sessionToken"], base_url)
+    set_model_api_token(auth_response["sessionToken"], base_url, user_id, username)
 
     functions = _create_functions_manager(http)
 
@@ -280,3 +288,4 @@ def init(
     set_gpu_api_token(api_token, gpu_build_url, base_url, user_id, username, compute_tier)
     set_cpu_sandbox_api_token(api_token, base_url)
     set_gpu_sandbox_api_token(api_token, gpu_build_url, user_id, username, compute_tier, base_url)
+    set_model_api_token(api_token, base_url, user_id, username)

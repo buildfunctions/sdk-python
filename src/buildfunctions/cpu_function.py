@@ -115,7 +115,7 @@ async def _create_cpu_function(options: CPUFunctionOptions) -> DeployedFunction 
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(600.0)) as client:
         response = await client.post(
-            f"{base_url}/api/sdk/functions/build",
+            f"{base_url}/api/sdk/function/build",
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_token}",
@@ -134,7 +134,7 @@ async def _create_cpu_function(options: CPUFunctionOptions) -> DeployedFunction 
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as c:
             await c.request(
                 "DELETE",
-                f"{base_url}/api/sdk/functions/build",
+                f"{base_url}/api/sdk/function/build",
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {api_token}",
@@ -147,7 +147,7 @@ async def _create_cpu_function(options: CPUFunctionOptions) -> DeployedFunction 
         "name": name,
         "subdomain": name,
         "endpoint": data.get("endpoint", ""),
-        "lambdaUrl": data.get("sslCertificateEndpoint", ""),
+        "url": data.get("sslCertificateEndpoint", ""),
         "language": options["language"],
         "runtime": runtime,
         "isGPUF": False,

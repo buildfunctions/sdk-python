@@ -48,6 +48,9 @@ from buildfunctions.gpu_function import GPUFunction, create_gpu_function
 from buildfunctions.cpu_sandbox import CPUSandbox, create_cpu_sandbox
 from buildfunctions.gpu_sandbox import GPUSandbox, create_gpu_sandbox
 
+# Model factory
+from buildfunctions.model import Model, create_model, set_model_api_token
+
 # Errors
 from buildfunctions.errors import (
     AuthenticationError,
@@ -79,6 +82,8 @@ from buildfunctions.types import (
     Language,
     ListOptions,
     Memory,
+    ModelConfig,
+    ModelInstance,
     RunResult,
     Runtime,
     SandboxInstance,
@@ -105,6 +110,9 @@ __all__ = [
     # Sandbox factories (snake_case aliases)
     "create_cpu_sandbox",
     "create_gpu_sandbox",
+    # Model factory
+    "Model",
+    "create_model",
     # Errors
     "BuildfunctionsError",
     "AuthenticationError",
@@ -136,4 +144,6 @@ __all__ = [
     "ListOptions",
     "ErrorCode",
     "FileMetadata",
+    "ModelConfig",
+    "ModelInstance",
 ]
