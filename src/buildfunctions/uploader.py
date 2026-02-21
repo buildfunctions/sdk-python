@@ -46,8 +46,16 @@ async def upload_part(content: bytes, presigned_url: str, part_number: int) -> d
     return {"PartNumber": part_number, "ETag": clean_etag}
 
 
+def _read_chunk(file_path: str, start: int, end: int) -> bytes:
+    """Read a chunk of a file from disk without loading the entire file."""
+    with open(file_path, "rb") as f:
+        f.seek(start)
+        return f.read(end - start)
+
+
 async def upload_multipart_file(
-    content: bytes,
+    file_path: str,
+    file_size: int,
     signed_urls: list[str],
     upload_id: str,
     number_of_parts: int,
@@ -63,8 +71,8 @@ async def upload_multipart_file(
         async with semaphore:
             part_number = index + 1
             start = index * CHUNK_SIZE
-            end = min(start + CHUNK_SIZE, len(content))
-            chunk = content[start:end]
+            end = min(start + CHUNK_SIZE, file_size)
+            chunk = _read_chunk(file_path, start, end)
             url = signed_urls[index]
             if not url:
                 raise RuntimeError(f"Missing upload URL for part {part_number}")
@@ -115,52 +123,80 @@ def get_files_in_directory(dir_path: str) -> list[FileMetadata]:
     return files
 
 
+class UploadProgress:
+    """Tracks upload progress for display."""
+    __slots__ = ("total_files", "completed_files", "total_bytes", "uploaded_bytes", "skipped_files", "start_time")
+
+    def __init__(self, total_files: int, total_bytes: int, skipped_files: int = 0) -> None:
+        self.total_files = total_files
+        self.completed_files = 0
+        self.total_bytes = total_bytes
+        self.uploaded_bytes = 0
+        self.skipped_files = skipped_files
+        self.start_time = asyncio.get_event_loop().time()
+
+
 async def upload_model_files(
     files: list[FileMetadata],
     presigned_urls: dict[str, PresignedUrlInfo],
     bucket_name: str,
     base_url: str,
+    on_progress: Any | None = None,
 ) -> None:
     """Upload all model files using presigned URLs."""
-    upload_tasks: list[asyncio.Task[None]] = []
+    files_to_upload: list[tuple[FileMetadata, PresignedUrlInfo]] = []
 
     for file in files:
         url_info = presigned_urls.get(file["webkit_relative_path"])
         if not url_info:
-            print(f"No upload URL found for {file['webkit_relative_path']}")
             continue
+        files_to_upload.append((file, url_info))
 
-        content = Path(file["local_path"]).read_bytes()
+    skipped = len(files) - len(files_to_upload)
+    total_bytes = sum(f["size"] for f, _ in files_to_upload)
+    progress = UploadProgress(len(files_to_upload), total_bytes, skipped)
+
+    if on_progress:
+        on_progress(progress)
+
+    upload_tasks: list[asyncio.Task[None]] = []
+
+    for file, url_info in files_to_upload:
         signed_urls = url_info["signedUrl"]
 
-        if len(signed_urls) > 1 and url_info.get("uploadId"):
-            upload_tasks.append(
-                asyncio.ensure_future(
-                    upload_multipart_file(
-                        content,
-                        signed_urls,
-                        url_info["uploadId"],  # type: ignore[arg-type]
-                        url_info.get("numberOfParts", len(signed_urls)),
-                        bucket_name,
-                        url_info.get("s3FilePath", ""),
-                        base_url,
-                    )
+        async def _upload(f: FileMetadata = file, urls: list[str] = signed_urls, ui: PresignedUrlInfo = url_info) -> None:
+            if len(urls) > 1 and ui.get("uploadId"):
+                await upload_multipart_file(
+                    f["local_path"],
+                    f["size"],
+                    urls,
+                    ui["uploadId"],  # type: ignore[arg-type]
+                    ui.get("numberOfParts", len(urls)),
+                    bucket_name,
+                    ui.get("s3FilePath", ""),
+                    base_url,
                 )
-            )
-        elif len(signed_urls) == 1 and signed_urls[0]:
-            upload_tasks.append(asyncio.ensure_future(upload_file(content, signed_urls[0])))
+            elif len(urls) == 1 and urls[0]:
+                content = Path(f["local_path"]).read_bytes()
+                await upload_file(content, urls[0])
+            progress.completed_files += 1
+            progress.uploaded_bytes += f["size"]
+            if on_progress:
+                on_progress(progress)
+
+        upload_tasks.append(asyncio.ensure_future(_upload()))
 
     if upload_tasks:
         await asyncio.gather(*upload_tasks)
 
 
-async def transfer_files_to_efs(
+async def transfer_files_to_storage(
     files: list[FileMetadata],
     sanitized_model_name: str,
     base_url: str,
     session_token: str,
 ) -> None:
-    """Transfer files to EFS storage."""
+    """Transfer files to persistent storage."""
     async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
         details_response = await client.post(
             f"{base_url}/api/sdk/sandbox/gpu/get-transfer-details",

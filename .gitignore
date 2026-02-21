@@ -18,3 +18,5 @@ build/
 .pytest_cache*
 tests/live*
 tests/dist*
+tests/examples/gpu-sandbox-shared-memory.js
+tests/examples/gpu-function-shared-memory.js

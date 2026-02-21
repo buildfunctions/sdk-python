@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import sys
+import time
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -11,7 +13,7 @@ import httpx
 
 from buildfunctions.dotdict import DotDict
 from buildfunctions.errors import BuildfunctionsError, ValidationError
-from buildfunctions.uploader import get_files_in_directory, upload_model_files
+from buildfunctions.uploader import UploadProgress, get_files_in_directory, upload_model_files
 
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
 
@@ -76,6 +78,11 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
 
     print(f"   Found {len(files)} files to upload")
 
+    # Remap webkit_relative_path to use model_name instead of folder name
+    # e.g. "gpt-oss-120b/subdir/file.bin" → "my-llm/subdir/file.bin"
+    for f in files:
+        f["webkit_relative_path"] = model_name + f["webkit_relative_path"][len(local_upload_file_name):]
+
     files_within_model_folder = [
         {
             "name": f["name"],
@@ -108,17 +115,68 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
 
     data = response.json()
 
+    skipped_by_server = data.get("skippedFiles", 0)
+    total_file_count = data.get("totalFiles", len(files))
+
+    if skipped_by_server > 0:
+        print(f"   Resuming upload: {skipped_by_server}/{total_file_count} files already uploaded")
+
     # Upload files to S3
     model_presigned = data.get("modelPresignedUrls")
     if model_presigned:
-        print("   Uploading model files to S3...")
+        files_to_upload_count = len(model_presigned)
+        suffix = "" if files_to_upload_count == 1 else "s"
+        print(f"   Uploading {files_to_upload_count} file{suffix}...")
+
+        last_log_time = 0.0
+
+        def _on_progress(progress: UploadProgress) -> None:
+            nonlocal last_log_time
+            now = time.monotonic()
+            if now - last_log_time < 2.0 and progress.completed_files < progress.total_files:
+                return
+            last_log_time = now
+
+            pct = round((progress.uploaded_bytes / progress.total_bytes) * 100) if progress.total_bytes > 0 else 0
+            elapsed = now - progress.start_time
+            eta = ""
+            if elapsed > 0 and 0 < pct < 100:
+                remaining = (elapsed / pct) * (100 - pct)
+                if remaining >= 60:
+                    eta = f" | ETA: {int(remaining // 60) + 1}m"
+                else:
+                    eta = f" | ETA: {int(remaining) + 1}s"
+
+            total_mb = f"{progress.total_bytes / (1024 * 1024):.0f}"
+            uploaded_mb = f"{progress.uploaded_bytes / (1024 * 1024):.0f}"
+            sys.stdout.write(
+                f"\r   [{model_name}] {pct}% ({uploaded_mb}/{total_mb} MB) "
+                f"{progress.completed_files}/{progress.total_files} files{eta}   "
+            )
+            sys.stdout.flush()
+
         await upload_model_files(
             files,
             model_presigned,
             data.get("bucketName", ""),
             base_url,
+            on_progress=_on_progress,
         )
-        print("   Model files uploaded successfully")
+        sys.stdout.write("\n")
+        print("   Upload complete")
+    else:
+        print("   All files already uploaded")
+
+    # Mark upload as complete
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        await client.post(
+            f"{base_url}/api/sdk/model/complete",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {_global_api_token}",
+            },
+            json={"modelName": model_name},
+        )
 
     model_id = data["modelId"]
     final_model_name = data["modelName"]

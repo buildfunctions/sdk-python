@@ -24,6 +24,158 @@ ErrorCode = Literal[
     "UNKNOWN_ERROR",
 ]
 
+# Runtime controls event stream
+RuntimeControlEventType = Literal[
+    "retry",
+    "loop_warning",
+    "loop_quarantine",
+    "loop_stop",
+    "circuit_open",
+    "budget_stop",
+    "policy_denied",
+    "policy_approval_required",
+    "policy_approved",
+    "policy_dry_run",
+    "verifier_rejected",
+    "idempotency_replay",
+    "concurrency_wait",
+    "concurrency_rejected",
+]
+
+
+class RuntimeControlEvent(TypedDict, total=False):
+    type: RuntimeControlEventType
+    message: str
+    timestamp: int
+    request: dict[str, Any]
+    details: dict[str, Any]
+
+
+class RetryBackoffConfig(TypedDict, total=False):
+    maxAttempts: int
+    initialDelayMs: int
+    maxDelayMs: int
+    backoffFactor: float
+    jitterRatio: float
+
+
+class LoopBreakerConfig(TypedDict, total=False):
+    enabled: bool
+    warningThreshold: int
+    quarantineThreshold: int
+    stopThreshold: int
+    quarantineMs: int
+    stopCooldownMs: int
+    maxFingerprints: int
+
+
+RuntimePolicyMode = Literal["enforce", "dryRun"]
+RuntimePolicyAction = Literal["allow", "deny", "require_approval"]
+ToolConcurrencyWaitMode = Literal["reject", "wait"]
+
+
+class ToolCircuitBreakerConfig(TypedDict, total=False):
+    enabled: bool
+    windowMs: int
+    minRequests: int
+    failureRateThreshold: float
+    cooldownMs: int
+
+
+class ToolPolicyRule(TypedDict, total=False):
+    id: str
+    action: RuntimePolicyAction
+    tools: list[str]
+    destinations: list[str]
+    actionPrefixes: list[str]
+    reason: str
+
+
+class ToolPolicyGateConfig(TypedDict, total=False):
+    enabled: bool
+    mode: RuntimePolicyMode
+    rules: list[ToolPolicyRule]
+    approvalHandler: Callable[[dict[str, Any]], bool | Awaitable[bool]]
+
+
+class ToolRuntimeStateAdapter(TypedDict, total=False):
+    get: Callable[[str], Any | Awaitable[Any]]
+    set: Callable[[str, Any], Any | Awaitable[Any]]
+    delete: Callable[[str], Any | Awaitable[Any]]
+    keys: Callable[[], Any | Awaitable[Any]]
+
+
+class ToolRuntimeStateAdaptersConfig(TypedDict, total=False):
+    loop: ToolRuntimeStateAdapter
+    circuit: ToolRuntimeStateAdapter
+    budget: ToolRuntimeStateAdapter
+    lock: ToolRuntimeStateAdapter
+    idempotency: ToolRuntimeStateAdapter
+
+
+class ToolCallContext(TypedDict, total=False):
+    toolName: str
+    runKey: str
+    destination: str
+    action: str
+    args: Any
+    idempotencyKey: str
+    resourceKey: str
+    timeoutMs: int
+    signal: Any
+
+
+class ToolRuntimeOverrideConfig(TypedDict, total=False):
+    timeoutMs: int
+    retry: RetryBackoffConfig
+    loopBreaker: LoopBreakerConfig
+    circuitBreaker: ToolCircuitBreakerConfig
+
+
+class ToolRuntimeOverridesConfig(TypedDict, total=False):
+    tools: dict[str, ToolRuntimeOverrideConfig]
+    destinations: dict[str, ToolRuntimeOverrideConfig]
+
+
+class ToolIdempotencyConfig(TypedDict, total=False):
+    enabled: bool
+    ttlMs: int
+    includeErrors: bool
+    namespaceByRunKey: bool
+
+
+class ToolConcurrencyConfig(TypedDict, total=False):
+    enabled: bool
+    leaseMs: int
+    waitMode: ToolConcurrencyWaitMode
+    waitTimeoutMs: int
+    pollIntervalMs: int
+
+
+class ToolRuntimeVerifiersConfig(TypedDict, total=False):
+    beforeCall: Callable[[dict[str, Any]], bool | dict[str, Any] | Awaitable[bool | dict[str, Any]]]
+    afterSuccess: Callable[[dict[str, Any]], bool | dict[str, Any] | Awaitable[bool | dict[str, Any]]]
+    afterError: Callable[[dict[str, Any]], bool | dict[str, Any] | Awaitable[bool | dict[str, Any]]]
+
+
+class ToolRuntimeControlsConfig(TypedDict, total=False):
+    tenantKey: str
+    timeoutMs: int
+    maxToolCalls: int
+    retry: RetryBackoffConfig
+    retryClassifier: Callable[[dict[str, Any]], Any | Awaitable[Any]]
+    loopBreaker: LoopBreakerConfig
+    circuitBreaker: ToolCircuitBreakerConfig
+    policy: ToolPolicyGateConfig
+    verifiers: ToolRuntimeVerifiersConfig
+    idempotency: ToolIdempotencyConfig
+    concurrency: ToolConcurrencyConfig
+    overrides: ToolRuntimeOverridesConfig
+    state: ToolRuntimeStateAdaptersConfig
+    onEvent: Callable[[RuntimeControlEvent], Any]
+    eventSinks: list[Callable[[RuntimeControlEvent], Any | Awaitable[Any]]]
+    onEventSinkFailure: Callable[[dict[str, Any]], Any]
+
 
 # Client configuration
 class BuildfunctionsConfig(TypedDict, total=False):

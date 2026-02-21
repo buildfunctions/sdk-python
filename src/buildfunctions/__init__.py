@@ -51,6 +51,13 @@ from buildfunctions.gpu_sandbox import GPUSandbox, create_gpu_sandbox
 # Model factory
 from buildfunctions.model import Model, create_model, set_model_api_token
 
+# Runtime controls (function-based API)
+from buildfunctions.runtime_controls import (
+    RuntimeControls,
+    create_abort_controller,
+)
+from buildfunctions.agent_logic_safety import apply_agent_logic_safety, applyAgentLogicSafety
+
 # Errors
 from buildfunctions.errors import (
     AuthenticationError,
@@ -78,6 +85,22 @@ from buildfunctions.types import (
     GPUFunctionOptions,
     GPUSandboxConfig,
     GPUSandboxInstance,
+    LoopBreakerConfig,
+    RetryBackoffConfig,
+    RuntimeControlEvent,
+    RuntimeControlEventType,
+    RuntimePolicyAction,
+    RuntimePolicyMode,
+    ToolCallContext,
+    ToolConcurrencyConfig,
+    ToolIdempotencyConfig,
+    ToolPolicyGateConfig,
+    ToolPolicyRule,
+    ToolRuntimeControlsConfig,
+    ToolRuntimeOverrideConfig,
+    ToolRuntimeOverridesConfig,
+    ToolRuntimeStateAdapter,
+    ToolRuntimeStateAdaptersConfig,
     GPUType,
     Language,
     ListOptions,
@@ -113,6 +136,11 @@ __all__ = [
     # Model factory
     "Model",
     "create_model",
+    # Runtime controls
+    "RuntimeControls",
+    "create_abort_controller",
+    "apply_agent_logic_safety",
+    "applyAgentLogicSafety",
     # Errors
     "BuildfunctionsError",
     "AuthenticationError",
@@ -146,4 +174,21 @@ __all__ = [
     "FileMetadata",
     "ModelConfig",
     "ModelInstance",
+    # Runtime controls types
+    "RuntimeControlEventType",
+    "RuntimeControlEvent",
+    "RetryBackoffConfig",
+    "LoopBreakerConfig",
+    "RuntimePolicyMode",
+    "RuntimePolicyAction",
+    "ToolCallContext",
+    "ToolRuntimeOverrideConfig",
+    "ToolRuntimeOverridesConfig",
+    "ToolRuntimeStateAdapter",
+    "ToolRuntimeStateAdaptersConfig",
+    "ToolPolicyRule",
+    "ToolPolicyGateConfig",
+    "ToolIdempotencyConfig",
+    "ToolConcurrencyConfig",
+    "ToolRuntimeControlsConfig",
 ]

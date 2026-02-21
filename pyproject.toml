@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "buildfunctions"
-version = "0.2.3"
-description = "The Buildfunctions SDK for Agents: Hardware-isolated CPU and GPU Sandboxes for untrusted AI actions"
+version = "0.2.5"
+description = "The Buildfunctions SDK for Agents: Hardware-isolated CPU and GPU Sandboxes with runtime controls for untrusted AI actions"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
