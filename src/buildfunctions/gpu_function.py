@@ -15,7 +15,7 @@ from buildfunctions.memory import parse_memory
 from buildfunctions.resolve_code import resolve_code
 from buildfunctions.types import DeployedFunction, GPUFunctionOptions
 
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build.buildfunctions.link"
+DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
 
 # Module-level state

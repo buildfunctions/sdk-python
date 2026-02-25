@@ -27,7 +27,7 @@ from buildfunctions.types import (
 )
 
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build.buildfunctions.link"
+DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
 
 
 def _format_requirements(requirements: str | list[str] | None) -> str:

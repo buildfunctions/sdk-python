@@ -25,7 +25,7 @@ from buildfunctions.types import (
 )
 from buildfunctions.uploader import get_files_in_directory, upload_model_files
 
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build.buildfunctions.link"
+DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
 
 # Module-level state
