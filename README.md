@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">
   <a href="https://www.buildfunctions.com" target="_blank">
-    <img src="./static/readme/buildfunctions-header.svg" alt="logo" width="900">
+    <img src="https://raw.githubusercontent.com/buildfunctions/sdk-python/main/static/readme/buildfunctions-header.png" alt="logo" width="900">
   </a>
   </h1>
 </p>
@@ -13,7 +13,7 @@
     <img src="./static/readme/discord-button.png" height="32" />
   </a>&nbsp; -->
   <a href="https://www.buildfunctions.com/docs/sdk/quickstart" target="_blank">
-    <img src="./static/readme/read-the-docs-button.png" height="32" />
+    <img src="https://raw.githubusercontent.com/buildfunctions/sdk-python/main/static/readme/read-the-docs-button.png" height="32" />
   </a>&nbsp;
 </p>
 
@@ -26,7 +26,7 @@
 <p align="center">
   <h1 align="center">
   <a href="https://www.buildfunctions.com" target="_blank">
-    <img src="./static/readme/buildfunctions-logo-and-servers-dark.svg" alt="logo" width="900">
+    <img src="https://raw.githubusercontent.com/buildfunctions/sdk-python/main/static/readme/buildfunctions-logo-and-servers-dark.png" alt="logo" width="900">
   </a>
   </h1>
 </p>
