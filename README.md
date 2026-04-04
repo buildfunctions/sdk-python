@@ -31,7 +31,7 @@
   </h1>
 </p>
 
-> Hardware-isolated execution environments for AI agents — with runtime controls to help keep unattended runs bounded
+> The Buildfunctions SDK provides a client interface for interacting with the Buildfunctions platform
 
 ## Installation
 
@@ -228,10 +228,20 @@ print(f"Result: {result}")
 await sandbox.delete()
 ```
 
+## Documentation
+
 Full runtime controls documentation: https://www.buildfunctions.com/docs/runtime-controls
+
+## Beta Status
+
+The SDK is currently in beta. If you encounter any issues or have specific syntax requirements, please reach out and contact us at team@buildfunctions.com, and we’ll work to address them.
+
+## Terms
 
 Runtime controls are provided as best-effort tools to help manage application behavior and resource usage. They do not guarantee prevention of all unintended outcomes. Users are responsible for monitoring their own workloads. See our [Terms of Service](https://www.buildfunctions.com/terms-of-service) for full details.
 
 By using this SDK, you agree to the [Terms of Service](https://www.buildfunctions.com/terms-of-service).
 
-The SDK is currently in beta. If you encounter any issues or have specific syntax requirements, please reach out and contact us at team@buildfunctions.com, and we’ll work to address them.
+## License
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full license text.

@@ -13,6 +13,7 @@ import httpx
 from buildfunctions.dotdict import DotDict
 from buildfunctions.errors import BuildfunctionsError, ValidationError
 from buildfunctions.framework import detect_framework
+from buildfunctions.internal_endpoints import DEFAULT_GPU_BUILD_URL
 from buildfunctions.memory import parse_memory
 from buildfunctions.resolve_code import resolve_code
 from buildfunctions.types import (
@@ -25,7 +26,6 @@ from buildfunctions.types import (
 )
 from buildfunctions.uploader import get_files_in_directory, upload_model_files
 
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
 
 # Module-level state

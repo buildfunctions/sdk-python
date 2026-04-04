@@ -12,6 +12,7 @@ from buildfunctions.dotdict import DotDict
 from buildfunctions.errors import NotFoundError
 from buildfunctions.framework import detect_framework
 from buildfunctions.gpu_function import GPUFunction, set_gpu_api_token
+from buildfunctions.internal_endpoints import resolve_gpu_build_url
 from buildfunctions.gpu_sandbox import set_gpu_sandbox_api_token
 from buildfunctions.model import set_model_api_token
 from buildfunctions.http_client import create_http_client
@@ -27,7 +28,6 @@ from buildfunctions.types import (
 )
 
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
 
 
 def _format_requirements(requirements: str | list[str] | None) -> str:
@@ -225,7 +225,7 @@ async def Buildfunctions(config: BuildfunctionsConfig | None = None) -> DotDict:
         raise ValueError("API token is required")
 
     base_url = config.get("base_url") or config.get("baseUrl", DEFAULT_BASE_URL)
-    gpu_build_url = config.get("gpu_build_url") or config.get("gpuBuildUrl", DEFAULT_GPU_BUILD_URL)
+    configured_gpu_build_url = config.get("gpu_build_url") or config.get("gpuBuildUrl")
 
     # Don't wrap http in DotDict - it has methods like 'get' that conflict with dict builtins
     http = create_http_client(base_url=base_url, api_token=api_token)
@@ -239,7 +239,14 @@ async def Buildfunctions(config: BuildfunctionsConfig | None = None) -> DotDict:
 
     user_id = auth_response["user"].get("id", "")
     username = auth_response["user"].get("username") or None
+    email = auth_response["user"].get("email") or None
     compute_tier = auth_response["user"].get("compute_tier") or auth_response["user"].get("computeTier") or None
+    gpu_build_url = resolve_gpu_build_url(
+        configured_gpu_build_url,
+        user_id=user_id,
+        username=username,
+        email=email,
+    )
 
     set_cpu_sandbox_api_token(auth_response["sessionToken"], base_url)
     set_gpu_sandbox_api_token(auth_response["sessionToken"], gpu_build_url, user_id, username, compute_tier, base_url)
@@ -284,8 +291,14 @@ def init(
     compute_tier: str | None = None,
 ) -> None:
     """Global initialization - sets tokens across all modules."""
+    resolved_gpu_build_url = resolve_gpu_build_url(
+        gpu_build_url,
+        user_id=user_id,
+        username=username,
+    )
+
     set_api_token(api_token, base_url)
-    set_gpu_api_token(api_token, gpu_build_url, base_url, user_id, username, compute_tier)
+    set_gpu_api_token(api_token, resolved_gpu_build_url, base_url, user_id, username, compute_tier)
     set_cpu_sandbox_api_token(api_token, base_url)
-    set_gpu_sandbox_api_token(api_token, gpu_build_url, user_id, username, compute_tier, base_url)
+    set_gpu_sandbox_api_token(api_token, resolved_gpu_build_url, user_id, username, compute_tier, base_url)
     set_model_api_token(api_token, base_url, user_id, username)
