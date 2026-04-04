@@ -230,7 +230,7 @@ await sandbox.delete()
 
 ## Documentation
 
-Full runtime controls documentation: https://www.buildfunctions.com/docs/runtime-controls
+SDK Quickstart: https://www.buildfunctions.com/docs/sdk/quickstart
 
 ## Beta Status
 
