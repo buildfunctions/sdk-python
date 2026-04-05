@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 
-DEFAULT_GPU_BUILD_URL = "https://prod-gpu-build-server.buildfunctions.link"
+DEFAULT_GPU_BUILD_URL = "https://prod-gpu-infra-build-server.buildfunctions.link"
 
-_DEFAULT_DEV_GPU_BUILD_URL = "https://dev-gpu-build-server.buildfunctions.link"
+_DEFAULT_DEV_GPU_BUILD_URL = "https://dev-gpu-infra-build-server.buildfunctions.link"
 _TEST_ACCOUNT_ENV = "TEST_ACCOUNT"
 
 
