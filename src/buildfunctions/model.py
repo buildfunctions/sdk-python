@@ -49,7 +49,7 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
     if not _global_api_token:
         raise ValidationError("API key not set. Initialize Buildfunctions client first.")
 
-    base_url = _global_base_url or DEFAULT_BASE_URL
+    base_url = (_global_base_url or DEFAULT_BASE_URL).rstrip("/")
     model_path_str = config.get("path")
 
     if not model_path_str:
@@ -94,7 +94,7 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
     ]
 
     # POST to model/create endpoint
-    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0), follow_redirects=True) as client:
         response = await client.post(
             f"{base_url}/api/sdk/model/create",
             headers={
@@ -168,7 +168,7 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
         print("   All files already uploaded")
 
     # Mark upload as complete
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
         await client.post(
             f"{base_url}/api/sdk/model/complete",
             headers={
@@ -196,7 +196,7 @@ async def _find_unique_model(options: dict[str, Any]) -> DotDict | None:
     if not _global_api_token:
         raise ValidationError("API key not set. Initialize Buildfunctions client first.")
 
-    base_url = _global_base_url or DEFAULT_BASE_URL
+    base_url = (_global_base_url or DEFAULT_BASE_URL).rstrip("/")
     where = options.get("where", {})
     params = {}
     if where.get("name"):
@@ -204,7 +204,7 @@ async def _find_unique_model(options: dict[str, Any]) -> DotDict | None:
     if where.get("id"):
         params["id"] = where["id"]
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
         response = await client.get(
             f"{base_url}/api/sdk/model/find",
             params=params,
@@ -239,10 +239,10 @@ async def _list_models(options: dict[str, Any] | None = None) -> list[DotDict]:
     if not _global_api_token:
         raise ValidationError("API key not set. Initialize Buildfunctions client first.")
 
-    base_url = _global_base_url or DEFAULT_BASE_URL
+    base_url = (_global_base_url or DEFAULT_BASE_URL).rstrip("/")
     page = (options or {}).get("page", 1)
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
         response = await client.get(
             f"{base_url}/api/sdk/model",
             params={"page": page},
@@ -276,14 +276,14 @@ async def _delete_model(options: dict[str, Any]) -> None:
     if not _global_api_token:
         raise ValidationError("API key not set. Initialize Buildfunctions client first.")
 
-    base_url = _global_base_url or DEFAULT_BASE_URL
+    base_url = (_global_base_url or DEFAULT_BASE_URL).rstrip("/")
     where = options.get("where", {})
     model_name = where.get("name") or where.get("id")
 
     if not model_name:
         raise ValidationError("Model name or id is required")
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0), follow_redirects=True) as client:
         response = await client.request(
             "DELETE",
             f"{base_url}/api/sdk/model/delete",
