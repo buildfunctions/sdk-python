@@ -15,7 +15,7 @@ from buildfunctions.dotdict import DotDict
 from buildfunctions.errors import BuildfunctionsError, ValidationError
 from buildfunctions.memory import parse_memory
 from buildfunctions.resolve_code import resolve_code
-from buildfunctions.types import CPUSandboxConfig, CPUSandboxInstance, RunResult, UploadOptions
+from buildfunctions.types import CPUSandboxConfig, CPUSandboxInstance, FindUniqueOptions, ListOptions, RunResult, UploadOptions
 
 DEFAULT_BASE_URL = "https://www.buildfunctions.com"
 
@@ -379,6 +379,62 @@ async def _create_cpu_sandbox(config: CPUSandboxConfig) -> DotDict:
     return _create_cpu_sandbox_instance(sandbox_id, name, sandbox_runtime, sandbox_endpoint, api_token, base_url)
 
 
+async def _list_cpu_sandboxes(options: ListOptions | None = None) -> list[DotDict]:
+    """List CPU sandboxes for the authenticated user."""
+    if not _global_api_token:
+        raise ValidationError("API key not set. Initialize Buildfunctions client first.")
+
+    base_url = _global_base_url or DEFAULT_BASE_URL
+    api_token = _global_api_token
+    page = (options or {}).get("page", 1)
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        response = await client.get(
+            f"{base_url}/api/sdk/sandbox",
+            params={"type": "cpu", "page": page},
+            headers={"Authorization": f"Bearer {api_token}"},
+        )
+
+    if not response.is_success:
+        raise BuildfunctionsError(
+            f"Failed to list sandboxes: {response.text}", "UNKNOWN_ERROR", response.status_code
+        )
+
+    data = response.json()
+    return [
+        _create_cpu_sandbox_instance(
+            sandbox["id"],
+            sandbox["name"],
+            sandbox.get("runtime", ""),
+            f"https://{sandbox['name']}.buildfunctions.app",
+            api_token,
+            base_url,
+        )
+        for sandbox in data.get("cpuSandboxes", [])
+    ]
+
+
+async def _find_unique_cpu_sandbox(options: FindUniqueOptions) -> DotDict | None:
+    """Find a single CPU sandbox by id or name."""
+    where = options.get("where", {})
+
+    if where.get("id"):
+        sandboxes = await _list_cpu_sandboxes()
+        for sandbox in sandboxes:
+            if sandbox["id"] == where["id"]:
+                return sandbox
+        return None
+
+    if where.get("name"):
+        sandboxes = await _list_cpu_sandboxes()
+        for sandbox in sandboxes:
+            if sandbox["name"] == where["name"]:
+                return sandbox
+        return None
+
+    return None
+
+
 class CPUSandbox:
     """CPU Sandbox factory - matches TypeScript SDK pattern."""
 
@@ -387,6 +443,22 @@ class CPUSandbox:
         """Create a new CPU sandbox."""
         return await _create_cpu_sandbox(config)
 
+    @staticmethod
+    async def list(options: ListOptions | None = None) -> list[DotDict]:
+        """List CPU sandboxes for the authenticated user."""
+        return await _list_cpu_sandboxes(options)
+
+    @staticmethod
+    async def findUnique(options: FindUniqueOptions) -> DotDict | None:
+        """Find a single CPU sandbox by id or name."""
+        return await _find_unique_cpu_sandbox(options)
+
+    @staticmethod
+    async def find_unique(options: FindUniqueOptions) -> DotDict | None:
+        """Find a single CPU sandbox by id or name (snake_case alias)."""
+        return await _find_unique_cpu_sandbox(options)
+
 
 # Alias for direct function call style
 create_cpu_sandbox = _create_cpu_sandbox
+list_cpu_sandboxes = _list_cpu_sandboxes

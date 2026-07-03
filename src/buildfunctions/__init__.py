@@ -45,11 +45,11 @@ from buildfunctions.cpu_function import CPUFunction, create_cpu_function
 from buildfunctions.gpu_function import GPUFunction, create_gpu_function
 
 # Sandbox factories - match TypeScript SDK naming exactly
-from buildfunctions.cpu_sandbox import CPUSandbox, create_cpu_sandbox
-from buildfunctions.gpu_sandbox import GPUSandbox, create_gpu_sandbox
+from buildfunctions.cpu_sandbox import CPUSandbox, create_cpu_sandbox, list_cpu_sandboxes
+from buildfunctions.gpu_sandbox import GPUSandbox, create_gpu_sandbox, list_gpu_sandboxes
 
 # Model factory
-from buildfunctions.model import Model, create_model, set_model_api_token
+from buildfunctions.model import Model, create_model, list_models, set_model_api_token
 
 # Runtime controls (function-based API)
 from buildfunctions.runtime_controls import (
@@ -133,9 +133,12 @@ __all__ = [
     # Sandbox factories (snake_case aliases)
     "create_cpu_sandbox",
     "create_gpu_sandbox",
+    "list_cpu_sandboxes",
+    "list_gpu_sandboxes",
     # Model factory
     "Model",
     "create_model",
+    "list_models",
     # Runtime controls
     "RuntimeControls",
     "create_abort_controller",

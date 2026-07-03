@@ -110,7 +110,7 @@ async def _create_model(config: dict[str, Any]) -> DotDict:
 
     if not response.is_success:
         raise BuildfunctionsError(
-            f"Failed to create model: {response.text}", "UNKNOWN_ERROR", response.status_code
+            f"Failed to create model (HTTP {response.status_code})", "UNKNOWN_ERROR", response.status_code
         )
 
     data = response.json()
@@ -218,7 +218,7 @@ async def _find_unique_model(options: dict[str, Any]) -> DotDict | None:
 
     if not response.is_success:
         raise BuildfunctionsError(
-            f"Failed to find model: {response.text}", "UNKNOWN_ERROR", response.status_code
+            f"Failed to find model (HTTP {response.status_code})", "UNKNOWN_ERROR", response.status_code
         )
 
     data = response.json()
@@ -232,6 +232,43 @@ async def _find_unique_model(options: dict[str, Any]) -> DotDict | None:
         "name": model_name,
         "delete": delete_fn,
     })
+
+
+async def _list_models(options: dict[str, Any] | None = None) -> list[DotDict]:
+    """List models for the authenticated user."""
+    if not _global_api_token:
+        raise ValidationError("API key not set. Initialize Buildfunctions client first.")
+
+    base_url = _global_base_url or DEFAULT_BASE_URL
+    page = (options or {}).get("page", 1)
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        response = await client.get(
+            f"{base_url}/api/sdk/model",
+            params={"page": page},
+            headers={"Authorization": f"Bearer {_global_api_token}"},
+        )
+
+    if not response.is_success:
+        raise BuildfunctionsError(
+            f"Failed to list models (HTTP {response.status_code})", "UNKNOWN_ERROR", response.status_code
+        )
+
+    data = response.json()
+
+    def _wrap(model: dict[str, Any]) -> DotDict:
+        model_name = model["modelName"]
+
+        async def delete_fn() -> None:
+            await _delete_model({"where": {"name": model_name}})
+
+        return DotDict({
+            "id": model["modelId"],
+            "name": model_name,
+            "delete": delete_fn,
+        })
+
+    return [_wrap(model) for model in data.get("models", [])]
 
 
 async def _delete_model(options: dict[str, Any]) -> None:
@@ -259,7 +296,7 @@ async def _delete_model(options: dict[str, Any]) -> None:
 
     if not response.is_success:
         raise BuildfunctionsError(
-            f"Failed to delete model: {response.text}", "UNKNOWN_ERROR", response.status_code
+            f"Failed to delete model (HTTP {response.status_code})", "UNKNOWN_ERROR", response.status_code
         )
 
 
@@ -270,6 +307,11 @@ class Model:
     async def create(config: dict[str, Any]) -> DotDict:
         """Create a model by uploading it to cloud storage."""
         return await _create_model(config)
+
+    @staticmethod
+    async def list(options: dict[str, Any] | None = None) -> list[DotDict]:
+        """List models for the authenticated user."""
+        return await _list_models(options)
 
     @staticmethod
     async def findUnique(options: dict[str, Any]) -> DotDict | None:
@@ -289,3 +331,4 @@ class Model:
 
 # Alias for direct function call style
 create_model = _create_model
+list_models = _list_models

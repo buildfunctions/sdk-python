@@ -31,6 +31,11 @@ async def test_model_delete():
         client = await Buildfunctions({"apiToken": API_TOKEN})
         print(f"   Authenticated as: {client.user.username}")
 
+        # List all models (typed SDK)
+        print("\nListing all Models...")
+        all_models = await Model.list()
+        print(f"   Total Models: {len(all_models)}")
+
         # Step 2: Find model
         print("\n2. Finding model...")
 

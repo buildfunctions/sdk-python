@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import pytest
 from dotenv import load_dotenv
 
-from buildfunctions import Buildfunctions
+from buildfunctions import Buildfunctions, CPUSandbox, GPUSandbox
 
 load_dotenv()
 
@@ -61,5 +61,12 @@ async def test_auth():
     sandboxes = await http["get"]("/api/sdk/sandbox")
     print(f"   CPU Sandboxes: {sandboxes.get('cpuCount', 0)}")
     print(f"   GPU Sandboxes: {sandboxes.get('gpuCount', 0)}")
+
+    # Step 4: List Sandboxes via typed SDK
+    print("\n4. Listing Sandboxes (typed SDK)...")
+    cpu_sandboxes = await CPUSandbox.list()
+    gpu_sandboxes = await GPUSandbox.list()
+    print(f"   CPUSandbox.list(): {len(cpu_sandboxes)}")
+    print(f"   GPUSandbox.list(): {len(gpu_sandboxes)}")
 
     print("\nSDK Authentication test completed!")

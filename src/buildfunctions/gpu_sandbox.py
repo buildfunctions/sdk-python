@@ -18,9 +18,11 @@ from buildfunctions.memory import parse_memory
 from buildfunctions.resolve_code import resolve_code
 from buildfunctions.types import (
     FileMetadata,
+    FindUniqueOptions,
     GPUSandboxConfig,
     GPUSandboxInstance,
     GPUType,
+    ListOptions,
     RunResult,
     UploadOptions,
 )
@@ -468,6 +470,65 @@ async def _create_gpu_sandbox(config: GPUSandboxConfig) -> DotDict:
     )
 
 
+async def _list_gpu_sandboxes(options: ListOptions | None = None) -> list[DotDict]:
+    """List GPU sandboxes for the authenticated user."""
+    if not _global_api_token:
+        raise ValidationError("API key not set. Initialize Buildfunctions client first.")
+
+    base_url = _global_base_url or DEFAULT_BASE_URL
+    gpu_build_url = _global_gpu_build_url or DEFAULT_GPU_BUILD_URL
+    api_token = _global_api_token
+    page = (options or {}).get("page", 1)
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        response = await client.get(
+            f"{base_url}/api/sdk/sandbox",
+            params={"type": "gpu", "page": page},
+            headers={"Authorization": f"Bearer {api_token}"},
+        )
+
+    if not response.is_success:
+        raise BuildfunctionsError(
+            f"Failed to list sandboxes: {response.text}", "UNKNOWN_ERROR", response.status_code
+        )
+
+    data = response.json()
+    return [
+        _create_gpu_sandbox_instance(
+            sandbox["id"],
+            sandbox["name"],
+            sandbox.get("runtime", ""),
+            sandbox.get("gpu", "T4G"),
+            f"https://{sandbox['name']}.buildfunctions.app",
+            api_token,
+            gpu_build_url,
+            base_url,
+        )
+        for sandbox in data.get("gpuSandboxes", [])
+    ]
+
+
+async def _find_unique_gpu_sandbox(options: FindUniqueOptions) -> DotDict | None:
+    """Find a single GPU sandbox by id or name."""
+    where = options.get("where", {})
+
+    if where.get("id"):
+        sandboxes = await _list_gpu_sandboxes()
+        for sandbox in sandboxes:
+            if sandbox["id"] == where["id"]:
+                return sandbox
+        return None
+
+    if where.get("name"):
+        sandboxes = await _list_gpu_sandboxes()
+        for sandbox in sandboxes:
+            if sandbox["name"] == where["name"]:
+                return sandbox
+        return None
+
+    return None
+
+
 class GPUSandbox:
     """GPU Sandbox factory - matches TypeScript SDK pattern."""
 
@@ -476,6 +537,22 @@ class GPUSandbox:
         """Create a new GPU sandbox."""
         return await _create_gpu_sandbox(config)
 
+    @staticmethod
+    async def list(options: ListOptions | None = None) -> list[DotDict]:
+        """List GPU sandboxes for the authenticated user."""
+        return await _list_gpu_sandboxes(options)
+
+    @staticmethod
+    async def findUnique(options: FindUniqueOptions) -> DotDict | None:
+        """Find a single GPU sandbox by id or name."""
+        return await _find_unique_gpu_sandbox(options)
+
+    @staticmethod
+    async def find_unique(options: FindUniqueOptions) -> DotDict | None:
+        """Find a single GPU sandbox by id or name (snake_case alias)."""
+        return await _find_unique_gpu_sandbox(options)
+
 
 # Alias for direct function call style
 create_gpu_sandbox = _create_gpu_sandbox
+list_gpu_sandboxes = _list_gpu_sandboxes

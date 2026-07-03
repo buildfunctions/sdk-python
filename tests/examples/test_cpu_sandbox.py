@@ -49,6 +49,14 @@ async def test_cpu_sandbox():
         print(f"   Runtime: {sandbox.runtime}")
         print(f"   Endpoint: {sandbox.endpoint}")
 
+        # Verify in list + findUnique (typed SDK)
+        print("\nVerifying CPU Sandbox in list...")
+        sandbox_list = await CPUSandbox.list()
+        found_in_list = any(s["id"] == sandbox.id for s in sandbox_list)
+        print(f"   Found in CPUSandbox.list(): {found_in_list}")
+        found_unique = await CPUSandbox.findUnique({"where": {"id": sandbox.id}})
+        print(f"   CPUSandbox.findUnique by id: {found_unique.name if found_unique else 'not found'}")
+
         # Step 3: Run CPU Sandbox
         print("\n3. Running CPU Sandbox...")
         result = await sandbox.run()
