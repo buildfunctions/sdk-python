@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from buildfunctions.compliance_preflight import assert_build_allowed
 from buildfunctions.dotdict import DotDict
 from buildfunctions.errors import BuildfunctionsError, ValidationError
 from buildfunctions.framework import detect_framework
@@ -407,6 +408,10 @@ async def _create_gpu_sandbox(config: GPUSandboxConfig) -> DotDict:
         "computeTier": _global_compute_tier,
         "runCommand": None,
     }
+
+    # Compliance pre-flight: buildfunctions checks the caller's live country and
+    # blocks (451/403) before the build request is sent. Raises if not permitted.
+    await assert_build_allowed(base_url, api_token, body)
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(1800.0)) as client:

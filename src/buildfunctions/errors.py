@@ -77,6 +77,8 @@ def _map_error_code(code: str | None, status_code: int) -> ErrorCode:
         "MAX_CAPACITY",
         "SIZE_LIMIT_EXCEEDED",
         "VALIDATION_ERROR",
+        "COUNTRY_RESTRICTED",
+        "FEATURE_ACCESS_REVIEW_REQUIRED",
     }
     if code and code in valid_codes:
         return code  # type: ignore[return-value]
